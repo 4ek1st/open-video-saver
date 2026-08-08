@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Open Video Saver</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>Open Video Saver</h1>
+        <p>Открытые прямые видеофайлы на этой вкладке</p>
+      </header>
+
+      <p id="status" class="status" role="status">Ищу видео…</p>
+      <ul id="results" class="results" aria-live="polite"></ul>
+
+      <footer>
+        Работает только с прямыми файлами. DRM, платный доступ, HLS/DASH и
+        защищённые потоки не поддерживаются.
+      </footer>
+    </main>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

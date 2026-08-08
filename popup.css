@@ -1,0 +1,107 @@
+:root {
+  color-scheme: light dark;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+body {
+  margin: 0;
+  min-width: 340px;
+  max-width: 440px;
+  background: #10131a;
+  color: #f5f7fb;
+}
+
+main {
+  padding: 16px;
+}
+
+header {
+  margin-bottom: 14px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.25;
+}
+
+header p,
+footer {
+  margin: 5px 0 0;
+  color: #aeb8c9;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.status {
+  margin: 0 0 12px;
+  color: #c9d5ed;
+  font-size: 13px;
+}
+
+.status.error {
+  color: #ffb4ab;
+}
+
+.results {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 14px;
+  padding: 0;
+  list-style: none;
+}
+
+.result {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid #30394a;
+  border-radius: 9px;
+  background: #181d27;
+}
+
+.file-name {
+  overflow: hidden;
+  color: #f5f7fb;
+  font-size: 13px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-url {
+  overflow: hidden;
+  margin-top: 3px;
+  color: #aeb8c9;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+button {
+  cursor: pointer;
+  border: 0;
+  border-radius: 7px;
+  padding: 8px 10px;
+  background: #7aa2ff;
+  color: #07152f;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+button:hover {
+  background: #9dbaff;
+}
+
+button:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}

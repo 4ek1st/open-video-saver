@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "Open Video Saver",
+  "description": "Find directly accessible video files on the active page and download them with Chrome's standard download manager.",
+  "version": "0.1.0",
+  "action": {
+    "default_title": "Open Video Saver",
+    "default_popup": "popup.html"
+  },
+  "permissions": [
+    "activeTab",
+    "downloads",
+    "scripting"
+  ]
+}
