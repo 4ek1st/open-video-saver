@@ -77,6 +77,14 @@ function collectVideoCandidates() {
   const filePattern = /\.(mp4|webm|mov|m4v|ogv|ogg)(?:$|[?#])/i;
   const blockedStreamPattern = /\.(m3u8|mpd)(?:$|[?#])/i;
   const found = new Map();
+  const diagnostics = {
+    isEmbeddedFrame: window.top !== window,
+    iframeCount: 0,
+    inaccessibleIframeCount: 0,
+    videoElementCount: 0,
+    streamLikeVideoCount: 0,
+    streamManifestCount: 0
+  };
 
   const normalize = (rawUrl) => {
     if (!rawUrl) {
@@ -99,6 +107,19 @@ function collectVideoCandidates() {
     return match ? match[1].toLowerCase() : "mp4";
   };
 
+  const isStreamLike = (rawUrl) => {
+    if (!rawUrl) {
+      return false;
+    }
+
+    try {
+      const url = new URL(rawUrl, document.baseURI);
+      return url.protocol === "blob:" || blockedStreamPattern.test(url.href);
+    } catch {
+      return rawUrl.startsWith("blob:") || blockedStreamPattern.test(rawUrl);
+    }
+  };
+
   const add = (rawUrl, label) => {
     const url = normalize(rawUrl);
     if (!url || !filePattern.test(url)) {
@@ -116,14 +137,24 @@ function collectVideoCandidates() {
   };
 
   document.querySelectorAll("video").forEach((video, index) => {
+    diagnostics.videoElementCount += 1;
     if (video.mediaKeys) {
+      diagnostics.streamLikeVideoCount += 1;
       return;
     }
 
     const label = video.getAttribute("title") || video.getAttribute("aria-label") || `Видео ${index + 1}`;
-    add(video.currentSrc, label);
-    add(video.getAttribute("src"), label);
-    video.querySelectorAll("source[src]").forEach((source) => add(source.src, label));
+    const sourceUrls = [
+      video.currentSrc,
+      video.getAttribute("src"),
+      ...[...video.querySelectorAll("source[src]")].map((source) => source.src)
+    ];
+
+    if (sourceUrls.some(isStreamLike)) {
+      diagnostics.streamLikeVideoCount += 1;
+    }
+
+    sourceUrls.forEach((sourceUrl) => add(sourceUrl, label));
   });
 
   document.querySelectorAll("source[src]").forEach((source) => add(source.src, "Видео"));
@@ -132,12 +163,89 @@ function collectVideoCandidates() {
   });
 
   performance.getEntriesByType("resource").forEach((entry) => {
+    if (blockedStreamPattern.test(entry.name)) {
+      diagnostics.streamManifestCount += 1;
+    }
+
     if (entry.initiatorType === "video" || entry.initiatorType === "source") {
       add(entry.name, "Видео со страницы");
     }
   });
 
-  return [...found.values()].slice(0, 30);
+  if (!diagnostics.isEmbeddedFrame) {
+    document.querySelectorAll("iframe").forEach((frame) => {
+      diagnostics.iframeCount += 1;
+      try {
+        if (!frame.contentDocument) {
+          diagnostics.inaccessibleIframeCount += 1;
+        }
+      } catch {
+        diagnostics.inaccessibleIframeCount += 1;
+      }
+    });
+  }
+
+  return {
+    candidates: [...found.values()].slice(0, 30),
+    diagnostics
+  };
+}
+
+function combineFrameResults(executionResults) {
+  const deduplicatedCandidates = new Map();
+  const diagnostics = {
+    iframeCount: 0,
+    inaccessibleIframeCount: 0,
+    videoElementCount: 0,
+    streamLikeVideoCount: 0,
+    streamManifestCount: 0,
+    scannedEmbeddedFrameCount: 0
+  };
+
+  executionResults.forEach(({ result }) => {
+    if (!result) {
+      return;
+    }
+
+    result.candidates.forEach((candidate) => {
+      const previous = deduplicatedCandidates.get(candidate.url);
+      if (!previous || previous.label === "Видео") {
+        deduplicatedCandidates.set(candidate.url, candidate);
+      }
+    });
+
+    const frameDiagnostics = result.diagnostics;
+    diagnostics.iframeCount += frameDiagnostics.iframeCount;
+    diagnostics.inaccessibleIframeCount += frameDiagnostics.inaccessibleIframeCount;
+    diagnostics.videoElementCount += frameDiagnostics.videoElementCount;
+    diagnostics.streamLikeVideoCount += frameDiagnostics.streamLikeVideoCount;
+    diagnostics.streamManifestCount += frameDiagnostics.streamManifestCount;
+    diagnostics.scannedEmbeddedFrameCount += frameDiagnostics.isEmbeddedFrame ? 1 : 0;
+  });
+
+  return {
+    candidates: [...deduplicatedCandidates.values()].slice(0, 30),
+    diagnostics
+  };
+}
+
+function noCandidateMessage(diagnostics) {
+  if (diagnostics.streamLikeVideoCount > 0 || diagnostics.streamManifestCount > 0) {
+    return "Видео найдено, но оно воспроизводится потоком, а открытого прямого файла нет.";
+  }
+
+  if (diagnostics.iframeCount > 0) {
+    const inaccessible = diagnostics.inaccessibleIframeCount > 0
+      ? " Часть встроенных плееров находится на недоступной странице."
+      : "";
+    return `Прямых файлов нет. Найдено встроенных плееров: ${diagnostics.iframeCount}; проверено доступных: ${diagnostics.scannedEmbeddedFrameCount}.${inaccessible}`;
+  }
+
+  if (diagnostics.videoElementCount > 0) {
+    return "Видеоэлемент найден, но открытой прямой ссылки на файл нет.";
+  }
+
+  return "Прямые видеофайлы не найдены.";
 }
 
 async function loadCandidates() {
@@ -149,13 +257,13 @@ async function loadCandidates() {
     }
 
     const execution = await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
+      target: { tabId: tab.id, allFrames: true },
       func: collectVideoCandidates
     });
-    const candidates = execution[0]?.result || [];
+    const { candidates, diagnostics } = combineFrameResults(execution);
 
     if (candidates.length === 0) {
-      setStatus("Прямые видеофайлы не найдены.");
+      setStatus(noCandidateMessage(diagnostics));
       return;
     }
 
